@@ -91,6 +91,7 @@ CALL neotorch.graphsage.train(
 | epochs                    | Integer         | `10`      | Number of epochs for training.                                  |
 | optimizer                 | String          | `'adam'`  | Optimizer for training. `['adam', 'sgd']`                       |
 | learningRate              | Float           | `0.001`   | Learning rate for training.                                     |
+| negativeSampleWeight      | Float           | `1.0`     | Weight for negative samples in loss function.                   |
 
 ### Inference Mode
 

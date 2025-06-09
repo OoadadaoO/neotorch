@@ -8,8 +8,14 @@ import ai.djl.training.loss.Loss;
 
 public class GraphSageUnsupervisedLoss extends Loss {
 
-    public GraphSageUnsupervisedLoss() {
+    float negativeSampleWeight;
+
+    public GraphSageUnsupervisedLoss(float negativeSampleWeight) {
         super("GraphSAGEUnsupervised");
+        if (negativeSampleWeight <= 0) {
+            throw new IllegalArgumentException("`negativeSampleWeight` must be a positive number");
+        }
+        this.negativeSampleWeight = negativeSampleWeight;
     }
 
     /**
@@ -35,7 +41,7 @@ public class GraphSageUnsupervisedLoss extends Loss {
 
         // 4. logistic loss
         NDArray posLoss = Activation.sigmoid(posScore).log().neg(); // [B]
-        NDArray negLoss = Activation.sigmoid(negScore.neg()).log().neg(); // [B]
+        NDArray negLoss = Activation.sigmoid(negScore.neg()).log().neg().mul(negativeSampleWeight); // [B]
 
         // 5. combine losses
         NDArray loss = posLoss.add(negLoss).mean();

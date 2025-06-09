@@ -182,6 +182,7 @@ public class GraphSageModel extends GnnModel {
             model.setBlock(embedding.getBlock());
             DefaultTrainingConfig tConfig = setupTrainingConfig(dir, trainingConfig.maxGpus().intValue(),
                     trainingConfig.learningRate().floatValue(),
+                    trainingConfig.negativeSampleWeight().floatValue(),
                     config.supervised());
             try (Trainer trainer = model.newTrainer(tConfig)) {
                 trainer.setMetrics(new Metrics());
@@ -222,6 +223,7 @@ public class GraphSageModel extends GnnModel {
     }
 
     private static DefaultTrainingConfig setupTrainingConfig(String outputDir, int maxGpus, float lr,
+            float negativeSampleWeight,
             boolean supervised) {
 
         PluginSettings settings = PluginSettings.getInstance();
@@ -237,7 +239,7 @@ public class GraphSageModel extends GnnModel {
                 });
 
         DefaultTrainingConfig config = new DefaultTrainingConfig(
-                supervised ? new SoftmaxCrossEntropyLoss() : new GraphSageUnsupervisedLoss())
+                supervised ? new SoftmaxCrossEntropyLoss() : new GraphSageUnsupervisedLoss(negativeSampleWeight))
                 // .addEvaluator(new Accuracy())
                 .optDevices(Engine.getEngine(settings.engineName).getDevices(maxGpus))
                 // .optExecutorService()
