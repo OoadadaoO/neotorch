@@ -1,3 +1,52 @@
+# NeoTorch
+
+## Getting Started
+
+### Prerequisites
+
+- Ubuntu 24.04+
+
+### Install OpenJDK
+
+```bash
+sudo apt install openjdk-21-headless
+```
+
+### Install Neo4j
+
+Follow the [Neo4j installation guide](https://neo4j.com/docs/operations-manual/current/installation/linux/debian/#debian-installation).
+
+Also refer to the [Neo4j systemd service guide](https://neo4j.com/docs/operations-manual/current/installation/linux/systemd/) to set up Neo4j as a system service and set an initial password.
+
+### Install NeoTorch
+
+Clone the repository:
+
+```bash
+git clone https://github.com/OoadadaoO/neotorch.git
+cd neotorch
+```
+
+To prepare the NeoTorch environment,
+
+```bash
+sudo bash prepare.sh
+```
+
+Then build from source and deploy the plugin:
+
+```bash
+make
+```
+
+### (Optional) Install Python Dependencies
+
+If you want to use data loaders,
+
+```bash
+bash setup_dev.sh
+```
+
 ## User-defined Procedures - GraphSAGE
 
 ### Train Mode
