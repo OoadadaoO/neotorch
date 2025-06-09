@@ -4,9 +4,15 @@ target
 # Python venv (dev)
 .venv
 
+# Python cache
+__pycache__
+
 # datasets (dev)
 data
 import
+
+# environment variables
+.env
 
 # CUDA installlation
 cuda*

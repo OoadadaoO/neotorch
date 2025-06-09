@@ -31,7 +31,9 @@ pip install --upgrade pip
 pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
 pip install torch_geometric==2.6.1
 pip install ogb==1.3.6
-# pip install neo4j-rust-ext==5.28.1.0
+
+# experiment
+pip install neo4j-rust-ext==5.28.1.0 python-dotenv==1.1.0 matplotlib
 
 # 額外（可選）PyG 套件：
 # pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.5.0+cu124.html
