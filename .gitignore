@@ -1,0 +1,15 @@
+# Java output
+target
+
+# Python venv (dev)
+.venv
+
+# datasets (dev)
+data
+import
+
+# CUDA installlation
+cuda*
+
+# IDE settings
+.vscode
