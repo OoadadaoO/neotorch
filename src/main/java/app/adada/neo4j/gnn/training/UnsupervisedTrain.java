@@ -39,7 +39,7 @@ public final class UnsupervisedTrain {
      * @throws TranslateException if there is an error while processing input
      */
     public static void fit(
-            Trainer trainer, int numEpoch, Dataset trainingDataset, Dataset validateDataset)
+            Trainer trainer, int numEpoch, Dataset trainingDataset, Dataset validateDataset, int maxIterations)
             throws IOException, TranslateException {
 
         // Deep learning is typically trained in epochs where each epoch trains the
@@ -53,7 +53,11 @@ public final class UnsupervisedTrain {
             long epochStart = System.nanoTime();
 
             // We iterate through the dataset once during each epoch
+            int count = 0;
             for (Batch batch : trainer.iterateDataset(trainingDataset)) {
+                if (maxIterations > 0 && count++ >= maxIterations) {
+                    break; // Stop after maxIterations
+                }
 
                 // During trainBatch, we update the loss and evaluators with the results for the
                 // training batch
@@ -73,21 +77,20 @@ public final class UnsupervisedTrain {
                 batch.close();
             }
 
+            float trainLoss = trainer.getLoss().getAccumulator(EvaluatorTrainingListener.TRAIN_EPOCH);
+
             // After each epoch, test against the validation dataset if we have one
             evaluateDataset(trainer, validateDataset);
-
             // reset training and validation evaluators at end of epoch
-            System.out.println("Loss: " +
-                    trainer.getLoss().getAccumulator(EvaluatorTrainingListener.TRAIN_ALL));
             trainer.notifyListeners(listener -> listener.onEpoch(trainer));
+
+            float epochTime = trainer.getMetrics().latestMetric("epoch").getValue().longValue() / 1_000_000_000f;
+            System.out.printf("Train :: Epoch %d, %.2f sec :: Loss=%.4f%n", epoch, epochTime, trainLoss);
+
         }
-        // Calculate the average epoch time
-        double avgEpochTimeMs = 0.0;
-        for (long epochTime : epochTimes) {
-            avgEpochTimeMs += epochTime / 1_000_000_000.0;
-        }
-        avgEpochTimeMs /= numEpoch;
-        System.out.printf("Average epoch time: %.4f s%n", avgEpochTimeMs);
+
+        double averageEpochTime = trainer.getMetrics().mean("epoch") / 1_000_000_000.0;
+        System.out.printf("Average epoch time: %.2f sec%n", averageEpochTime);
     }
 
     /**
@@ -128,6 +131,8 @@ public final class UnsupervisedTrain {
         }
 
         trainer.notifyListeners(listener -> listener.onTrainingBatch(trainer, batchData));
+        batchData.getLabels().values().forEach(NDList::close);
+        batchData.getPredictions().values().forEach(NDList::close);
     }
 
     private static boolean trainSplit(
@@ -138,6 +143,11 @@ public final class UnsupervisedTrain {
         long time = System.nanoTime();
         NDArray lossValue = trainer.getLoss().evaluate(labels, preds.addAll(
                 data.subNDList(2, 4)));
+
+        // Check for infinite loss values
+        if (Float.isInfinite(lossValue.sum().getFloat())) {
+            return false; // Skip this batch if loss is infinite
+        }
         collector.backward(lossValue);
         trainer.addMetric("backward", time);
         time = System.nanoTime();

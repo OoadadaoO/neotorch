@@ -7,10 +7,10 @@ from utils import plot_stats, test
 
 
 GDS_QUERIES = """
-MATCH (source:Paper)
-OPTIONAL MATCH (source:Paper)-[r:CITES]->(target:Paper)
+MATCH (source:Product)
+OPTIONAL MATCH (source:Product)-[r:CO_PURCHASED_WITH]->(target:Product)
 RETURN gds.graph.project(
-  'cora',
+  'ogbn-products',
   source,
   target,
   {
@@ -20,10 +20,10 @@ RETURN gds.graph.project(
     targetNodeProperties: target { .features },
     relationshipType: type(r)
   },
-  { undirectedRelationshipTypes: ['CITES'] }
+  { undirectedRelationshipTypes: ['CO_PURCHASED_WITH'] }
 );
 CALL gds.beta.graphSage.train(
-  'cora',
+  'ogbn-products',
   {
     modelName: 'test-gds',
     featureProperties: ['features'],
@@ -31,11 +31,11 @@ CALL gds.beta.graphSage.train(
     aggregator: 'mean',
     activationFunction: 'relu',
     sampleSizes: [25, 10],
-    batchSize: 512,
+    batchSize: 256,
     learningRate: 0.001,
-    epochs: 5,
+    epochs: 1,
     negativeSampleWeight: 1,
-    maxIterations: 5,
+    maxIterations: 10,
     randomSeed: 42,
     tolerance: 0
   }
@@ -46,7 +46,7 @@ RETURN
   info.metrics.ranEpochs as ranEpochs,
   info.metrics.epochLosses as epochLosses;
 CALL gds.model.drop('test-gds');
-CALL gds.graph.drop('cora')
+CALL gds.graph.drop('ogbn-products')
 """
 
 NEOTORCH_QUERIES = """
@@ -57,14 +57,15 @@ CALL neotorch.graphsage.train(
   nodes, 
   {
     featureProperties: ['features'],
-    featureDimension: 1433,
+    featureDimension: 100,
     embeddingDimension: 256,
     aggregator: 'mean',
     activationFunction: 'relu',
     sampleSizes: [25, 10],
-    batchSize: 512,
+    batchSize: 256,
     learningRate: 0.001,
-    epochs: 5,
+    epochs: 1,
+    maxIterations: 10,
     randomSeed: 42
   }
 ) YIELD model
@@ -74,14 +75,14 @@ CALL neotorch.graphsage.delete("test-neotorch")
 
 
 if __name__ == "__main__":
-    gds_stats = test(GDS_QUERIES.split(";"))
     neotorch_stats = test(NEOTORCH_QUERIES.split(";"))
+    # gds_stats = test(GDS_QUERIES.split(";"))
 
     plot_stats(
         {
-            "GDS": gds_stats,
+            # "GDS": gds_stats,
             "NeoTorch": neotorch_stats,
         },
-        title="GDS vs NeoTorch Performance on Cora Dataset",
-        filename=f"cora_b_512_{time.strftime('%Y%m%d_%H%M%S', time.localtime())}.png",
+        title="GDS vs NeoTorch Performance on ogbn-products Dataset",
+        filename=f"ogbn_products_{time.strftime('%Y%m%d_%H%M%S', time.localtime())}.png",
     )

@@ -10,7 +10,7 @@ GDS_QUERIES = """
 MATCH (source:Paper)
 OPTIONAL MATCH (source:Paper)-[r:CITES]->(target:Paper)
 RETURN gds.graph.project(
-  'cora',
+  'ogbn-arxiv',
   source,
   target,
   {
@@ -23,7 +23,7 @@ RETURN gds.graph.project(
   { undirectedRelationshipTypes: ['CITES'] }
 );
 CALL gds.beta.graphSage.train(
-  'cora',
+  'ogbn-arxiv',
   {
     modelName: 'test-gds',
     featureProperties: ['features'],
@@ -33,9 +33,9 @@ CALL gds.beta.graphSage.train(
     sampleSizes: [25, 10],
     batchSize: 512,
     learningRate: 0.001,
-    epochs: 5,
+    epochs: 10,
     negativeSampleWeight: 1,
-    maxIterations: 5,
+    maxIterations: 10,
     randomSeed: 42,
     tolerance: 0
   }
@@ -46,7 +46,7 @@ RETURN
   info.metrics.ranEpochs as ranEpochs,
   info.metrics.epochLosses as epochLosses;
 CALL gds.model.drop('test-gds');
-CALL gds.graph.drop('cora')
+CALL gds.graph.drop('ogbn-arxiv')
 """
 
 NEOTORCH_QUERIES = """
@@ -57,14 +57,15 @@ CALL neotorch.graphsage.train(
   nodes, 
   {
     featureProperties: ['features'],
-    featureDimension: 1433,
+    featureDimension: 128,
     embeddingDimension: 256,
     aggregator: 'mean',
     activationFunction: 'relu',
     sampleSizes: [25, 10],
     batchSize: 512,
     learningRate: 0.001,
-    epochs: 5,
+    epochs: 10,
+    maxIterations: 10,
     randomSeed: 42
   }
 ) YIELD model
@@ -82,6 +83,6 @@ if __name__ == "__main__":
             "GDS": gds_stats,
             "NeoTorch": neotorch_stats,
         },
-        title="GDS vs NeoTorch Performance on Cora Dataset",
-        filename=f"cora_b_512_{time.strftime('%Y%m%d_%H%M%S', time.localtime())}.png",
+        title="GDS vs NeoTorch Performance on ogbn-arxiv Dataset",
+        filename=f"ogbn_arxiv_b_512_{time.strftime('%Y%m%d_%H%M%S', time.localtime())}.png",
     )

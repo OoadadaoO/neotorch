@@ -4,9 +4,16 @@ import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
+import org.neo4j.graphdb.ResourceIterable;
 import org.neo4j.graphdb.Transaction;
+
 import org.neo4j.graphdb.Result;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -38,7 +45,7 @@ public class BatchSampler {
 
         // Mapping node to index
         Map<String, Integer> nodeIndex = new HashMap<>((int) Math.ceil(batchNodes.size() * (2 + numNeg) / 0.75));
-        List<Node> allNodes = new ArrayList<>(batchNodes);
+        List<Node> extendedNodes = new ArrayList<>(batchNodes);
         for (Node n : batchNodes)
             nodeIndex.put(n.getElementId(), nodeIndex.size());
 
@@ -58,38 +65,58 @@ public class BatchSampler {
                     .filter(r -> matchesLabels(r.getOtherNode(n), nodeLabels))
                     .collect(Collectors.toList());
             if (compliantRels.isEmpty()) {
-                throw new IllegalStateException("No compliant neighbor found for node: " + n.getElementId());
+                continue; // Skip nodes with no valid positive neighbors
             }
             Relationship chosenRel = compliantRels.get(random.nextInt(compliantRels.size()));
             Node posNode = chosenRel.getOtherNode(n);
             String posEid = posNode.getElementId();
             if (!nodeIndex.containsKey(posEid)) {
                 nodeIndex.put(posEid, nodeIndex.size());
-                allNodes.add(posNode);
+                extendedNodes.add(posNode);
             }
             positiveEdges[0][i] = nodeIndex.get(posEid);
             positiveEdges[1][i] = nodeIndex.get(n.getElementId());
         }
 
         // Negative sampling
-        List<Node> pool = collectAllNodes(nodeLabels, tx, n -> true);
-        if (pool.isEmpty()) {
-            throw new IllegalStateException("No valid negative nodes found in the graph.");
-        }
-        for (int i = 0; i < batchNodes.size(); i++) {
-            for (int j = 0; j < numNeg; j++) {
-                Node negNode = pool.get(random.nextInt(pool.size()));
-                String negEid = negNode.getElementId();
-                if (!nodeIndex.containsKey(negEid)) {
-                    nodeIndex.put(negEid, nodeIndex.size());
-                    allNodes.add(negNode);
+        try (ResourceIterable<Node> allNodes = tx.getAllNodes()) {
+            // List<Node> selectedNodes = ReservoirSampling.sample(allNodes.iterator(),
+            // batchNodes.size() * numNeg,
+            // (node) -> matchesLabels(node, nodeLabels) &&
+            // !nodeIndex.containsKey(node.getElementId()));
+            // if (selectedNodes.isEmpty()) {
+            // throw new IllegalStateException("No valid negative nodes found in the
+            // graph.");
+            // }
+            // for (int i = 0; i < selectedNodes.size(); i++) {
+            // Node negNode = selectedNodes.get(i);
+            // String negEid = negNode.getElementId();
+            // nodeIndex.put(negEid, nodeIndex.size());
+            // extendedNodes.add(negNode);
+            // int batchIndex = i / numNeg;
+            // negativeEdges[0][i] = nodeIndex.get(negEid);
+            // negativeEdges[1][i] =
+            // nodeIndex.get(batchNodes.get(batchIndex).getElementId());
+            // }
+            List<Node> pool = allNodes.stream().toList();
+            if (pool.isEmpty()) {
+                throw new IllegalStateException("No valid negative nodes found in the graph.");
+            }
+            for (int i = 0; i < batchNodes.size(); i++) {
+                for (int j = 0; j < numNeg; j++) {
+                    Node negNode = pool.get(random.nextInt(pool.size()));
+                    String negEid = negNode.getElementId();
+                    if (!nodeIndex.containsKey(negEid)) {
+                        nodeIndex.put(negEid, nodeIndex.size());
+                        extendedNodes.add(negNode);
+                    }
+                    int negIndex = i * numNeg + j;
+                    negativeEdges[0][negIndex] = nodeIndex.get(negEid);
+                    negativeEdges[1][negIndex] = nodeIndex.get(batchNodes.get(i).getElementId());
                 }
-                int negIndex = i * numNeg + j;
-                negativeEdges[0][negIndex] = nodeIndex.get(negEid);
-                negativeEdges[1][negIndex] = nodeIndex.get(batchNodes.get(i).getElementId());
             }
         }
-        return new ExtendedBatch(allNodes, positiveEdges, negativeEdges);
+        return new ExtendedBatch(extendedNodes, positiveEdges, negativeEdges);
     }
 
     public class ExtendedBatch {

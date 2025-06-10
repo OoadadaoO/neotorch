@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
@@ -19,7 +18,6 @@ import app.adada.neo4j.algo.BatchSampler;
 import app.adada.neo4j.algo.DenseGraph;
 import app.adada.neo4j.algo.NeighborSampler;
 import app.adada.neo4j.algo.BatchSampler.ExtendedBatch;
-import app.adada.neo4j.procedure.Test.SampledSubgraphResult;
 
 public class Test {
 

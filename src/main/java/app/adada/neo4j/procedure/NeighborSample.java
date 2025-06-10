@@ -21,7 +21,7 @@ import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
-import static app.adada.neo4j.util.ReservoirSampling.reservoirSample;;
+import static app.adada.neo4j.util.ReservoirSampling.sample;;
 
 public class NeighborSample {
 
@@ -51,12 +51,12 @@ public class NeighborSample {
 
             for (Node node : previousLayer) {
                 Iterable<Relationship> rels = node.getRelationships(Direction.OUTGOING, relationshipType);
-                List<Node> neighbors = reservoirSample(
+                List<Node> neighbors = sample(
                         StreamSupport.stream(rels.spliterator(), false)
                                 .map(r -> r.getOtherNode(node))
-                                .filter(n -> n.hasLabel(label))
                                 .iterator(),
-                        neighborNumbers.get(depth).intValue());
+                        neighborNumbers.get(depth).intValue(),
+                        n -> n.hasLabel(label));
 
                 for (Node neighbor : neighbors) {
                     if (visitedIds.add(neighbor.getElementId())) {

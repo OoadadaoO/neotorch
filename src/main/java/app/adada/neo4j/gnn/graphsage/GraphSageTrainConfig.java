@@ -10,6 +10,7 @@ public record GraphSageTrainConfig(
         Long randomSeed,
         Long batchSize,
         Long epochs,
+        Long maxIterations,
         String optimizer,
         Double learningRate,
         Double negativeSampleWeight) {
@@ -20,6 +21,7 @@ public record GraphSageTrainConfig(
                 TypeParser.parse(config.get("randomSeed"), Long.class, new Random().nextLong()),
                 TypeParser.parse(config.get("batchSize"), Long.class, 100L),
                 TypeParser.parse(config.get("epochs"), Long.class, 10L),
+                TypeParser.parse(config.get("maxIterations"), Long.class, 10L),
                 TypeParser.parse(config.get("optimizer"), String.class, "adam"),
                 TypeParser.parse(config.get("learningRate"), Double.class, 0.001),
                 TypeParser.parse(config.get("negativeSampleWeight"), Double.class, 1.0));

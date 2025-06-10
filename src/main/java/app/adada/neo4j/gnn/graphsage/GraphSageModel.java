@@ -16,19 +16,23 @@ import ai.djl.training.DefaultTrainingConfig;
 import ai.djl.training.Trainer;
 import ai.djl.training.TrainingResult;
 import ai.djl.training.dataset.Dataset;
+import ai.djl.training.listener.EpochTrainingListener;
+import ai.djl.training.listener.EvaluatorTrainingListener;
+import ai.djl.training.listener.MemoryTrainingListener;
 import ai.djl.training.listener.SaveModelTrainingListener;
+import ai.djl.training.listener.TimeMeasureTrainingListener;
 import ai.djl.training.listener.TrainingListener;
 import ai.djl.training.loss.SoftmaxCrossEntropyLoss;
 import ai.djl.training.optimizer.Adam;
 import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.FixedPerVarTracker;
-import ai.djl.training.util.ProgressBar;
 import ai.djl.translate.TranslateException;
 import app.adada.neo4j.config.PluginSettings;
 import app.adada.neo4j.gnn.GnnModel;
 import app.adada.neo4j.gnn.GnnModelConfig;
 import app.adada.neo4j.gnn.training.GraphSageUnsupervisedLoss;
 import app.adada.neo4j.gnn.training.UnsupervisedTrain;
+import app.adada.neo4j.gnn.training.listener.StdoutLoggingTrainingListener;
 import app.adada.neo4j.util.ModelBuilder;
 
 import java.io.IOException;
@@ -169,7 +173,6 @@ public class GraphSageModel extends GnnModel {
                 .optModelPath(Paths.get(dir))
                 .optEngine(settings.engineName)
                 .optOption("trainParam", String.valueOf(true))
-                .optProgress(new ProgressBar())
                 .build();
 
         try (Model model = Model.newInstance(modelName, settings.engineName);
@@ -191,11 +194,12 @@ public class GraphSageModel extends GnnModel {
                 trainer.initialize(new Shape(1, config.featureDimension()), new Shape(2, 1));
 
                 // Train
+                System.out.println(">>> Training model: " + modelName);
                 if (config.supervised()) {
                     throw new UnsupportedOperationException("Supervised training is not implemented yet.");
                 } else {
                     UnsupervisedTrain.fit(trainer, trainingConfig.epochs().intValue(), trainingDataset,
-                            validateDataset);
+                            validateDataset, trainingConfig.maxIterations().intValue());
                 }
 
                 // Save model
@@ -228,8 +232,8 @@ public class GraphSageModel extends GnnModel {
 
         PluginSettings settings = PluginSettings.getInstance();
 
-        SaveModelTrainingListener listener = new SaveModelTrainingListener(outputDir);
-        listener.setSaveModelCallback(
+        SaveModelTrainingListener saveListener = new SaveModelTrainingListener(outputDir);
+        saveListener.setSaveModelCallback(
                 trainer -> {
                     TrainingResult result = trainer.getTrainingResult();
                     Model model = trainer.getModel();
@@ -238,13 +242,23 @@ public class GraphSageModel extends GnnModel {
                     model.setProperty("Loss", String.format("%.5f", result.getValidateLoss()));
                 });
 
+        TrainingListener[] listeners = new TrainingListener[] {
+                new EpochTrainingListener(),
+                new MemoryTrainingListener(outputDir),
+                new EvaluatorTrainingListener(1),
+                // new DivergenceCheckTrainingListener(),
+                new StdoutLoggingTrainingListener(),
+                new TimeMeasureTrainingListener(outputDir),
+                saveListener
+        };
+
         DefaultTrainingConfig config = new DefaultTrainingConfig(
-                supervised ? new SoftmaxCrossEntropyLoss() : new GraphSageUnsupervisedLoss(negativeSampleWeight))
+                supervised ? new SoftmaxCrossEntropyLoss()
+                        : new GraphSageUnsupervisedLoss("Loss", negativeSampleWeight))
                 // .addEvaluator(new Accuracy())
                 .optDevices(Engine.getEngine(settings.engineName).getDevices(maxGpus))
                 // .optExecutorService()
-                .addTrainingListeners(TrainingListener.Defaults.logging(outputDir))
-                .addTrainingListeners(listener);
+                .addTrainingListeners(listeners);
 
         // Customized learning rate support
         /*

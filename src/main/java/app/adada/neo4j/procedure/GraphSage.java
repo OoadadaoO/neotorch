@@ -64,6 +64,8 @@ public class GraphSage {
             @Name("nodes") List<Node> nodes,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         try {
+            // ResourceIterable<Node> allNodes = tx.getAllNodes();
+            // List<Node> nodes = allNodes.stream().toList();
             GraphSageModel sageModel = new GraphSageModel(tx, modelName);
             GraphSageModelConfig modelConfig = GraphSageModelConfig.fromMap(config);
             GraphSageTrainConfig trainingConfig = GraphSageTrainConfig.fromMap(config);

@@ -1,17 +1,21 @@
 package app.adada.neo4j.util;
 
 import java.util.*;
+import java.util.function.Predicate;
 
 public class ReservoirSampling {
 
     // Generic method for reservoir sampling
-    public static <T> List<T> reservoirSample(Iterator<T> stream, int k) {
+    public static <T> List<T> sample(Iterator<T> iterator, int k, Predicate<T> filter) {
         List<T> reservoir = new ArrayList<>(k);
         Random random = new Random();
 
         int i = 0;
-        while (stream.hasNext()) {
-            T item = stream.next();
+        while (iterator.hasNext()) {
+            T item = iterator.next();
+            if (!filter.test(item)) {
+                continue; // Skip items that do not match the filter
+            }
 
             if (i < k) {
                 // Fill the reservoir first
@@ -37,7 +41,7 @@ public class ReservoirSampling {
         }
 
         // 從資料流中抽取 10 個樣本
-        List<Integer> sample = reservoirSample(dataStream.iterator(), 10);
+        List<Integer> sample = sample(dataStream.iterator(), 10, (n) -> true);
 
         System.out.println("Sampling Result:");
         for (int num : sample) {
