@@ -41,10 +41,16 @@ make
 
 ### (Optional) Install Python Dependencies
 
-If you want to use data loaders,
+If you want to use data loaders and experiments, you need to install the Python dependencies at local:
 
 ```bash
 bash setup_dev.sh
+```
+
+## Experiment
+
+```
+bash experiment.sh
 ```
 
 ## User-defined Procedures - GraphSAGE
