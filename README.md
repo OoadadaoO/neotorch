@@ -5,6 +5,7 @@
 ### Prerequisites
 
 - Ubuntu 24.04+
+- NVIDIA GPU with CUDA support
 
 ### Install OpenJDK
 
@@ -41,7 +42,7 @@ make
 
 ### (Optional) Install Python Dependencies
 
-If you want to use data loaders and experiments, you need to install the Python dependencies at local:
+If you want to use data loaders or run experiments, you need to install the Python dependencies at local:
 
 ```bash
 bash setup_dev.sh
@@ -95,6 +96,7 @@ CALL neotorch.graphsage.train(
 | randomSeed                | Integer         | `null`    | Random seed for reproducibility.                                |
 | batchSize                 | Integer         | `100`     | Batch size for training.                                        |
 | epochs                    | Integer         | `10`      | Number of epochs for training.                                  |
+| maxIterations             | Integer         | `10`      | Maximum number of iterations for training.                      |
 | optimizer                 | String          | `'adam'`  | Optimizer for training. `['adam', 'sgd']`                       |
 | learningRate              | Float           | `0.001`   | Learning rate for training.                                     |
 | negativeSampleWeight      | Float           | `1.0`     | Weight for negative samples in loss function.                   |
