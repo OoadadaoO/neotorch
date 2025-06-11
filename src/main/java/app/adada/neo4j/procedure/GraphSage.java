@@ -8,6 +8,9 @@ import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+
 import app.adada.neo4j.gnn.dataset.GnnDataset;
 import app.adada.neo4j.gnn.graphsage.GraphSageModel;
 import app.adada.neo4j.gnn.graphsage.GraphSageModelConfig;
@@ -30,10 +33,12 @@ public class GraphSage {
     // These mirror the structure from your original request for procedure outputs.
 
     public static class TrainResult {
-        public final String model; // Represents modelName
+        public final Map<String, Object> modelInfo;
+        public final Map<String, Object> configuration;
 
-        public TrainResult(String modelName) {
-            this.model = modelName;
+        public TrainResult(Map<String, Object> modelInfo, Map<String, Object> configuration) {
+            this.modelInfo = modelInfo;
+            this.configuration = configuration;
         }
     }
 
@@ -47,10 +52,10 @@ public class GraphSage {
         }
     }
 
-    public static class DeleteResult {
+    public static class DropResult {
         public final String modelName;
 
-        public DeleteResult(String modelName) {
+        public DropResult(String modelName) {
             this.modelName = modelName;
         }
     }
@@ -63,33 +68,36 @@ public class GraphSage {
             @Name("modelName") String modelName,
             @Name("nodes") List<Node> nodes,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        try {
-            // ResourceIterable<Node> allNodes = tx.getAllNodes();
-            // List<Node> nodes = allNodes.stream().toList();
-            GraphSageModel sageModel = new GraphSageModel(tx, modelName);
-            GraphSageModelConfig modelConfig = GraphSageModelConfig.fromMap(config);
-            GraphSageTrainConfig trainingConfig = GraphSageTrainConfig.fromMap(config);
+        // try {
+        // ResourceIterable<Node> allNodes = tx.getAllNodes();
+        // List<Node> nodes = allNodes.stream().toList();
+        GraphSageModel sageModel = new GraphSageModel(tx, modelName);
+        GraphSageModelConfig modelConfig = GraphSageModelConfig.fromMap(config);
+        GraphSageTrainConfig trainingConfig = GraphSageTrainConfig.fromMap(config);
 
-            System.out.println("GraphSAGEProcedures.train: Training with " + nodes.size() + " nodes.");
+        System.out.println("GraphSAGEProcedures.train: Training with " + nodes.size() + " nodes.");
 
-            GnnDataset trainingDataset = GnnDataset.builder(trainingConfig.randomSeed().intValue())
-                    .setTransaction(tx)
-                    .setNodes(nodes)
-                    .setConfig(modelConfig)
-                    .setSampling(trainingConfig.batchSize().intValue(), true)
-                    .build(modelConfig.supervised());
+        GnnDataset trainingDataset = GnnDataset.builder(trainingConfig.randomSeed().intValue())
+                .setTransaction(tx)
+                .setNodes(nodes)
+                .setConfig(modelConfig)
+                .setSampling(trainingConfig.batchSize().intValue(), true)
+                .build(modelConfig.supervised());
 
-            sageModel.create(modelConfig).train(trainingConfig, trainingDataset, null);
-        } catch (Exception e) {
-            System.err.println("GraphSAGEProcedures.train: Exception occurred during training.");
-            e.printStackTrace();
-        }
+        Map<String, Object> modelInfo = sageModel.create(modelConfig).train(trainingConfig, trainingDataset, null);
+        // } catch (Exception e) {
+        // System.err.println("GraphSAGEProcedures.train: Exception occurred during
+        // training.");
+        // e.printStackTrace();
+        // }
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> configurationMap = mapper.convertValue(modelConfig,
+                new TypeReference<Map<String, Object>>() {
+                });
+        configurationMap.putAll(mapper.convertValue(trainingConfig, new TypeReference<Map<String, Object>>() {
+        }));
 
-        // GnnModel.TrainResult gnnTrainResult = sageModel.train(modelName,
-        // trainingConfig);
-        // System.out.println("GraphSAGEProcedures.train: " + gnnTrainResult.status); //
-        // Log the detailed status
-        return Stream.of(new TrainResult(modelName));
+        return Stream.of(new TrainResult(modelInfo, configurationMap));
     }
 
     // @Procedure(name = "torch.graphsage.infer", mode = Mode.READ)
@@ -116,15 +124,15 @@ public class GraphSage {
     // gnnPrediction.predictionValue));
     // }
 
-    @Procedure(name = "neotorch.graphsage.delete", mode = Mode.WRITE)
-    @Description("CALL neotorch.graphsage.delete(modelName) YIELD model. " +
+    @Procedure(name = "neotorch.graphsage.drop", mode = Mode.WRITE)
+    @Description("CALL neotorch.graphsage.drop(modelName) YIELD model. " +
             "Delete a GraphSAGE model.")
-    public Stream<DeleteResult> delete(
+    public Stream<DropResult> drop(
             @Name("modelName") String modelName) {
         GraphSageModel sageModel = new GraphSageModel(tx, modelName);
 
         sageModel.delete();
 
-        return Stream.of(new DeleteResult(modelName));
+        return Stream.of(new DropResult(modelName));
     }
 }

@@ -40,7 +40,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Concrete implementation of GnnModel for GraphSAGE.
@@ -161,7 +163,8 @@ public class GraphSageModel extends GnnModel {
         }
     }
 
-    public void train(GraphSageTrainConfig trainingConfig, Dataset trainingDataset, Dataset validateDataset) {
+    public Map<String, Object> train(GraphSageTrainConfig trainingConfig, Dataset trainingDataset,
+            Dataset validateDataset) {
         if (config == null) {
             throw new IllegalStateException("Model configuration is not set. Please create or load the model first.");
         }
@@ -195,27 +198,43 @@ public class GraphSageModel extends GnnModel {
 
                 // Train
                 System.out.println(">>> Training model: " + modelName);
+                List<Float> epochLosses = new ArrayList<>();
                 if (config.supervised()) {
                     throw new UnsupportedOperationException("Supervised training is not implemented yet.");
                 } else {
                     UnsupervisedTrain.fit(trainer, trainingConfig.epochs().intValue(), trainingDataset,
-                            validateDataset, trainingConfig.maxIterations().intValue());
+                            validateDataset, trainingConfig.maxIterations().intValue(), epochLosses);
                 }
 
                 // Save model
                 System.out.println(">>> Saving model parameters.");
                 model.save(Paths.get(dir), modelName);
+
+                Map<String, Object> modelInfo = new HashMap<>();
+                modelInfo.put("name", modelName);
+                modelInfo.put("type", getModelType());
+                Map<String, Object> metrics = new HashMap<>();
+                metrics.put("ranEpochs", trainer.getTrainingResult().getEpoch());
+                metrics.put("epochLosses", epochLosses);
+                modelInfo.put("metrics", metrics);
+
+                return modelInfo;
             } catch (IOException e) {
                 e.printStackTrace();
+                throw new RuntimeException("Training failed due to IO error", e);
             } catch (TranslateException e) {
                 e.printStackTrace();
+                throw new RuntimeException("Training failed due to translation error", e);
             }
         } catch (ModelNotFoundException e1) {
             e1.printStackTrace();
+            throw new RuntimeException("Model not found", e1);
         } catch (MalformedModelException e1) {
             e1.printStackTrace();
+            throw new RuntimeException("Malformed model", e1);
         } catch (IOException e1) {
             e1.printStackTrace();
+            throw new RuntimeException("Training failed due to IO error", e1);
         }
     }
 

@@ -39,7 +39,8 @@ public final class UnsupervisedTrain {
      * @throws TranslateException if there is an error while processing input
      */
     public static void fit(
-            Trainer trainer, int numEpoch, Dataset trainingDataset, Dataset validateDataset, int maxIterations)
+            Trainer trainer, int numEpoch, Dataset trainingDataset, Dataset validateDataset, int maxIterations,
+            List<Float> epochLosses)
             throws IOException, TranslateException {
 
         // Deep learning is typically trained in epochs where each epoch trains the
@@ -61,11 +62,13 @@ public final class UnsupervisedTrain {
 
                 // During trainBatch, we update the loss and evaluators with the results for the
                 // training batch
-                trainBatch(trainer, batch);
+                boolean canStep = trainBatch(trainer, batch);
 
                 // Now, we update the model parameters based on the results of the latest
                 // trainBatch
-                trainer.step();
+                if (canStep) {
+                    trainer.step();
+                }
 
                 long epochEnd = System.nanoTime();
                 epochTimes[epoch] = epochEnd - epochStart;
@@ -78,6 +81,7 @@ public final class UnsupervisedTrain {
             }
 
             float trainLoss = trainer.getLoss().getAccumulator(EvaluatorTrainingListener.TRAIN_EPOCH);
+            epochLosses.add((float) trainLoss);
 
             // After each epoch, test against the validation dataset if we have one
             evaluateDataset(trainer, validateDataset);
@@ -101,7 +105,7 @@ public final class UnsupervisedTrain {
      * @throws IllegalArgumentException if the batch engine does not match the
      *                                  trainer engine
      */
-    public static void trainBatch(Trainer trainer, Batch batch) {
+    public static boolean trainBatch(Trainer trainer, Batch batch) {
         if (trainer.getManager().getEngine() != batch.getManager().getEngine()) {
             throw new IllegalArgumentException(
                     "The data must be on the same engine as the trainer. You may need to change one"
@@ -109,6 +113,7 @@ public final class UnsupervisedTrain {
         }
         Batch[] splits = batch.split(trainer.getDevices(), false);
         BatchData batchData = new BatchData(batch, new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+        boolean valid = false;
         try (GradientCollector collector = trainer.newGradientCollector()) {
 
             if (splits.length > 1 && trainer.getExecutorService().isPresent()) {
@@ -122,10 +127,12 @@ public final class UnsupervisedTrain {
                                     executor));
                 }
                 CompletableFuture.allOf(futures.stream().toArray(CompletableFuture[]::new));
+                valid = true;
             } else {
                 // sequence
                 for (Batch split : splits) {
-                    trainSplit(trainer, collector, batchData, split);
+                    boolean b = trainSplit(trainer, collector, batchData, split);
+                    valid = valid || b;
                 }
             }
         }
@@ -133,6 +140,7 @@ public final class UnsupervisedTrain {
         trainer.notifyListeners(listener -> listener.onTrainingBatch(trainer, batchData));
         batchData.getLabels().values().forEach(NDList::close);
         batchData.getPredictions().values().forEach(NDList::close);
+        return valid;
     }
 
     private static boolean trainSplit(
@@ -143,17 +151,15 @@ public final class UnsupervisedTrain {
         long time = System.nanoTime();
         NDArray lossValue = trainer.getLoss().evaluate(labels, preds.addAll(
                 data.subNDList(2, 4)));
-
-        // Check for infinite loss values
-        if (Float.isInfinite(lossValue.sum().getFloat())) {
-            return false; // Skip this batch if loss is infinite
-        }
         collector.backward(lossValue);
         trainer.addMetric("backward", time);
         time = System.nanoTime();
         batchData.getLabels().put(labels.get(0).getDevice(), labels);
         batchData.getPredictions().put(preds.get(0).getDevice(), preds);
         trainer.addMetric("training-metrics", time);
+        if (Float.isInfinite(lossValue.sum().getFloat())) {
+            return false; // Skip this batch if loss is infinite
+        }
         return true;
     }
 

@@ -7,14 +7,11 @@ import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.ResourceIterable;
 import org.neo4j.graphdb.Transaction;
 
-import org.neo4j.graphdb.Result;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -139,26 +136,5 @@ public class BatchSampler {
                 return true;
         }
         return false;
-    }
-
-    private List<Node> collectAllNodes(List<String> labels, Transaction tx, Predicate<Node> filter) {
-        String cypher;
-        if (labels.contains("*")) {
-            cypher = "MATCH (n) RETURN n";
-        } else {
-            String lbls = labels.stream()
-                    .map(l -> ":`" + l + "`")
-                    .collect(Collectors.joining("|"));
-            cypher = String.format("MATCH (n%s) RETURN n", lbls);
-        }
-        Result res = tx.execute(cypher);
-        List<Node> all = new ArrayList<>();
-        while (res.hasNext()) {
-            Node node = (Node) res.next().get("n");
-            if (filter == null || filter.test(node)) {
-                all.add(node);
-            }
-        }
-        return all;
     }
 }
